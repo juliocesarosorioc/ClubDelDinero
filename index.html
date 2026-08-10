@@ -198,6 +198,26 @@
       <div class="saldos-grid" id="panelSaldos"></div>
     </div>
 
+  <div class="card" style="border-color: #059669;">
+      <h2>🏦 Control de Caja (Depósitos y Retiros)</h2>
+      <div class="grid" style="gap: 10px; align-items: center;">
+        <input type="text" id="transUsuario" placeholder="Usuario (Ej. JULIO)" style="padding: 8px; background: #0b1329; color: white; border: 1px solid #334155; border-radius: 4px;">
+        
+        <select id="transTipo" style="padding: 8px; background: #0b1329; color: white; border: 1px solid #334155; border-radius: 4px;">
+          <option value="DEPOSITO">Depósito (Abono)</option>
+          <option value="RETIRO">Retiro (Cargo)</option>
+        </select>
+        
+        <input type="text" id="transBanco" placeholder="Banco (Ej. Banesco)" style="padding: 8px; background: #0b1329; color: white; border: 1px solid #334155; border-radius: 4px;">
+        
+        <input type="number" id="transMonto" placeholder="Monto USD" style="padding: 8px; background: #0b1329; color: white; border: 1px solid #334155; border-radius: 4px; width: 100px;">
+        
+        <input type="text" id="transRef" placeholder="N° Referencia" style="padding: 8px; background: #0b1329; color: white; border: 1px solid #334155; border-radius: 4px;">
+        
+        <button class="btn-green" onclick="registrarTransaccionSupabase()">Registrar Operación</button>
+      </div>
+    </div>
+    
     <div class="grid">
       <div class="col-6 card">
         <h2>📥 1. Entrada de Plano de Jugadas</h2>
