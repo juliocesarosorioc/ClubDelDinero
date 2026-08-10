@@ -109,29 +109,30 @@
       <h2>🏦 Control de Caja (Depósitos y Retiros)</h2>
       <div class="grid" style="gap: 10px; align-items: center;">
         <input type="text" id="transUsuario" class="caja-input" placeholder="Usuario (Ej. JULIO)">
+        
         <select id="transTipo" class="caja-input">
           <option value="DEPOSITO">Depósito (Abono)</option>
           <option value="RETIRO">Retiro (Cargo)</option>
         </select>
-       <select id="transBanco" class="caja-input">
-  <option value="" disabled selected>Método o Banco...</option>
-  
-  <optgroup label="🏛️ Bancos Nacionales">
-    <option value="BANESCO">Banesco</option>
-    <option value="MERCANTIL">Mercantil</option>
-    <option value="PROVINCIAL">Provincial</option>
-    <option value="VENEZUELA">Banco de Venezuela</option>
-    <option value="BANCAMIGA">Bancamiga</option>
-    <option value="BNC">BNC</option>
-  </optgroup>
-  
-  <optgroup label="💸 Modalidades de Pago">
-    <option value="PAGO_MOVIL">Pago Móvil</option>
-    <option value="ZELLE">Zelle</option>
-    <option value="BINANCE">Binance (USDT)</option>
-    <option value="EFECTIVO">Efectivo / Taquilla</option>
-  </optgroup>
-</select>
+        
+        <select id="transBanco" class="caja-input">
+          <option value="" disabled selected>Método o Banco...</option>
+          <optgroup label="🏛️ Bancos Nacionales">
+            <option value="BANESCO">Banesco</option>
+            <option value="MERCANTIL">Mercantil</option>
+            <option value="PROVINCIAL">Provincial</option>
+            <option value="VENEZUELA">Banco de Venezuela</option>
+            <option value="BANCAMIGA">Bancamiga</option>
+            <option value="BNC">BNC</option>
+          </optgroup>
+          <optgroup label="💸 Modalidades de Pago">
+            <option value="PAGO_MOVIL">Pago Móvil</option>
+            <option value="ZELLE">Zelle</option>
+            <option value="BINANCE">Binance (USDT)</option>
+            <option value="EFECTIVO">Efectivo / Taquilla</option>
+          </optgroup>
+        </select>
+
         <input type="number" id="transMonto" class="caja-input" placeholder="Monto USD" style="width: 100px;">
         <input type="text" id="transRef" class="caja-input" placeholder="N° Referencia">
         <button class="btn-green" onclick="registrarTransaccionSupabase()">Registrar Operación</button>
@@ -212,17 +213,17 @@ PABLO 10A7 4 JUAN 100</textarea>
   </div>
 
   <script>
-    // Configuración de Supabase (CORREGIDA)
+    // Configuración de Supabase (CORREGIDA Y ÚNICA)
     const SUPABASE_URL = "https://ogizwiesmscpibwhsaks.supabase.co"; 
     const SUPABASE_KEY = "sb_secret_LeCpOdQyd2wX-w1VQNgfNg_yy1NvdQ2"; 
     
-    // Le cambiamos el nombre a 'db' para que no choque con la librería
+    // Usamos 'db' para evitar choque con la librería original
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let usuariosBD = { "JULIO": 500, "JUAN": 500, "ANDRES": 150, "DURAN": 500, "LUIS": 500, "PABLO": 500 };
     let jugadasAprobadasGlobal = [];
 
-    // Función de Supabase
+    // Función de Supabase para guardar la transacción
     async function registrarTransaccionSupabase() {
       const usuario = document.getElementById('transUsuario').value.trim().toUpperCase();
       const tipo = document.getElementById('transTipo').value;
@@ -235,16 +236,24 @@ PABLO 10A7 4 JUAN 100</textarea>
         return;
       }
 
-      // Usamos 'db' en lugar de 'supabase'
+      // Deshabilita el botón mientras guarda
+      const btn = document.querySelector('.btn-green');
+      btn.innerText = "Guardando...";
+      btn.disabled = true;
+
+      // Envío de datos a Supabase usando 'db'
       const { data, error } = await db.from('transacciones').insert([{
         usuario_id: usuario, tipo: tipo, banco: banco, monto: monto, referencia: referencia, estatus: 'PENDIENTE'
       }]);
 
+      btn.innerText = "Registrar Operación";
+      btn.disabled = false;
+
       if (error) {
         if (error.code === '23505') alert(`❌ ERROR: La referencia "${referencia}" YA FUE REGISTRADA.`);
-        else alert(`❌ Error: ${error.message}`);
+        else alert(`❌ Error de conexión: ${error.message}`);
       } else {
-        alert(`✅ ¡${tipo} registrado con éxito!`);
+        alert(`✅ ¡Transacción registrada con éxito!`);
         document.getElementById('transMonto').value = '';
         document.getElementById('transRef').value = '';
       }
