@@ -113,7 +113,25 @@
           <option value="DEPOSITO">Depósito (Abono)</option>
           <option value="RETIRO">Retiro (Cargo)</option>
         </select>
-        <input type="text" id="transBanco" class="caja-input" placeholder="Banco (Ej. Banesco)">
+       <select id="transBanco" class="caja-input">
+  <option value="" disabled selected>Método o Banco...</option>
+  
+  <optgroup label="🏛️ Bancos Nacionales">
+    <option value="BANESCO">Banesco</option>
+    <option value="MERCANTIL">Mercantil</option>
+    <option value="PROVINCIAL">Provincial</option>
+    <option value="VENEZUELA">Banco de Venezuela</option>
+    <option value="BANCAMIGA">Bancamiga</option>
+    <option value="BNC">BNC</option>
+  </optgroup>
+  
+  <optgroup label="💸 Modalidades de Pago">
+    <option value="PAGO_MOVIL">Pago Móvil</option>
+    <option value="ZELLE">Zelle</option>
+    <option value="BINANCE">Binance (USDT)</option>
+    <option value="EFECTIVO">Efectivo / Taquilla</option>
+  </optgroup>
+</select>
         <input type="number" id="transMonto" class="caja-input" placeholder="Monto USD" style="width: 100px;">
         <input type="text" id="transRef" class="caja-input" placeholder="N° Referencia">
         <button class="btn-green" onclick="registrarTransaccionSupabase()">Registrar Operación</button>
