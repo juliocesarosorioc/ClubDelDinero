@@ -1,556 +1,202 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Plataforma de Control Hípico - Operaciones</title>
+// ==========================================
+// 1. ESTADO GLOBAL (STATE MANAGEMENT)
+// ==========================================
+const AppState = {
+  usuarios: { "JULIO": 500, "JUAN": 500, "ANDRES": 150, "DURAN": 500, "LUIS": 500, "PABLO": 500 },
+  jugadasAprobadas: [],
+  // URL de tu futuro backend en Node.js
+  API_URL: "http://localhost:3000/api" 
+};
+
+// ==========================================
+// 2. LÓGICA DE INTERFAZ (UI RENDERING)
+// ==========================================
+const UI = {
+  renderSaldos: () => {
+    const panel = document.getElementById('panelSaldos');
+    // Mapeamos y usamos join('') para evitar repintados múltiples del DOM (Mejora de Rendimiento)
+    panel.innerHTML = Object.keys(AppState.usuarios).map(u => `
+      <div class="saldo-item">
+        <strong>${u}:</strong> 
+        <input type="number" value="${AppState.usuarios[u]}" data-user="${u}" class="input-saldo"> USD
+      </div>
+    `).join('');
+    
+    // Delegación de eventos (Más ligero que onClick en el HTML)
+    document.querySelectorAll('.input-saldo').forEach(input => {
+      input.addEventListener('change', (e) => {
+        AppState.usuarios[e.target.dataset.user] = parseFloat(e.target.value);
+      });
+    });
+  },
+
+  generarPizarra: () => {
+    const cant = parseInt(document.getElementById('numPuestos').value) || 4;
+    const cont = document.getElementById('puestosContainer');
+    
+    let html = '';
+    for(let i=1; i<=cant; i++) {
+      let valPredeterminado = i <= 4 ? (5 - i) : 1; // 4, 3, 2, 1 lógica simplificada
+      html += `
+        <div style="text-align:center;">
+          <span style="font-size:10px; color:var(--text-muted);">${i}º</span><br>
+          <input type="text" class="input-pizarra" id="p_${i}" value="${valPredeterminado}">
+        </div>
+      `;
+    }
+    cont.innerHTML = html;
+  }
+};
+
+// ==========================================
+// 3. LÓGICA DE NEGOCIO (CORE BUSINESS)
+// ==========================================
+const LogicaHipica = {
+  procesarPlano: () => {
+    const texto = document.getElementById('planoTexto').value;
+    const lineas = texto.split('\n').filter(l => l.trim() !== ''); // Filtra líneas vacías rápido
+    
+    let saldosTemp = { ...AppState.usuarios };
+    let sobregiros = [];
+    let historialPorUsuario = {};
+    AppState.jugadasAprobadas = [];
+
+    // Arrays para recolectar HTML y evitar innerHTML en bucle
+    let filasEvaluacionHTML = [];
+    let planoGrupoTxt = "📋 *PLANO OFICIAL DE JUGADAS*\n\n";
+
+    lineas.forEach((linea, index) => {
+      const partes = linea.trim().split(/\s+/);
+      if (partes.length < 5) return;
+
+      const juega = partes[0];
+      const montoSol = parseFloat(partes[partes.length - 1]);
+      const da = partes[partes.length - 2];
+      const caballo = partes[partes.length - 3];
+      const jugada = partes.slice(1, partes.length - 3).join(' ');
+
+      if(!historialPorUsuario[juega]) historialPorUsuario[juega] = [];
+
+      const sJ = saldosTemp[juega] || 0;
+      const sD = saldosTemp[da] || 0;
+
+      let rD = jugada.toUpperCase() === '10A7' ? montoSol * 0.7 : montoSol;
+
+      // Cálculo de factor limitante
+      const factorLim = Math.min((sJ / montoSol) || 0, (sD / rD) || 0, 1.0);
+      const montoAuth = Math.floor(montoSol * factorLim);
+
+      saldosTemp[juega] -= (montoAuth * (montoSol/montoSol)); 
+      saldosTemp[da] -= (montoAuth * (rD/montoSol));
+
+      // Determinar estado visual
+      const estado = montoAuth === 0 ? { emoji: "❌", badge: "err", text: "RECHAZADO" } 
+                   : montoAuth < montoSol ? { emoji: "⚠️", badge: "warn", text: "LIMITADO" } 
+                   : { emoji: "✅", badge: "ok", text: "APROBADO" };
+
+      planoGrupoTxt += `${estado.emoji} ${juega} ${jugada} ${caballo} ${da} ${montoAuth}${montoAuth < montoSol ? ' (Ajuste)' : ''}\n`;
+
+      if (montoAuth < montoSol) sobregiros.push(juega);
+
+      historialPorUsuario[juega].push({ da, jugada, caballo, pedido: montoSol, autorizado: montoAuth, saldoRst: saldosTemp[juega] });
+
+      if (montoAuth > 0) AppState.jugadasAprobadas.push({ juega, jugada, caballo, da, monto: montoAuth });
+
+      filasEvaluacionHTML.push(`
+        <tr>
+          <td>#${index + 1}</td>
+          <td><strong>${juega}</strong> vs ${da}</td>
+          <td>${jugada} (#${caballo})</td>
+          <td>$${montoSol}</td>
+          <td><strong>$${montoAuth}</strong></td>
+          <td>$${saldosTemp[juega].toFixed(2)}</td>
+          <td><span class="badge badge-${estado.badge}">${estado.text}</span></td>
+        </tr>
+      `);
+    });
+
+    // Inserción masiva única (Super rápido)
+    document.getElementById('tablaEvaluacion').innerHTML = filasEvaluacionHTML.join('');
+    
+    planoGrupoTxt += "\n-----------------------------------\n📌 *Jugadas procesadas y garantizadas por la plataforma.*";
+    document.getElementById('outPlanoGrupo').innerText = planoGrupoTxt;
+
+    // Lógica Privada
+    LogicaHipica.mostrarMensajesPrivados(sobregiros, historialPorUsuario);
+  },
+
+  mostrarMensajesPrivados: (sobregiros, historialPorUsuario) => {
+    const secPriv = document.getElementById('seccionPrivada');
+    if (sobregiros.length === 0) {
+      secPriv.style.display = 'none';
+      return;
+    }
+
+    const userAfectado = sobregiros[0]; // Tomamos el primer afectado para el ejemplo
+    let msgPriv = `⚠️ *CONTROL DE SALDO - NOTIFICACIÓN*\n👤 *Usuario:* ${userAfectado}\n💰 *Saldo Inicial:* $${AppState.usuarios[userAfectado]} USD\n-------------------------------------------\n`;
+
+    historialPorUsuario[userAfectado].forEach((j, i) => {
+      let st = j.autorizado === j.pedido ? "✅ APROBADA" : (j.autorizado > 0 ? `⚠️ LIMITADA A $${j.autorizado}` : "❌ RECHAZADA");
+      msgPriv += `${i+1}. VS *${j.da}* (${j.jugada} #${j.caballo}) ➔ Pedido: $${j.pedido} ➔ ${st}\n`;
+    });
+
+    document.getElementById('outMensajePrivado').innerText = msgPriv + `\n📌 Por favor recargar saldo para ampliar tus límites.`;
+    secPriv.style.display = 'block';
+  }
+};
+
+// ==========================================
+// 4. CONEXIÓN API (NODE.JS) - SEGURIDAD
+// ==========================================
+async function registrarTransaccionBackend() {
+  const payload = {
+    usuario: document.getElementById('transUsuario').value.trim().toUpperCase(),
+    tipo: document.getElementById('transTipo').value,
+    banco: document.getElementById('transBanco').value.trim().toUpperCase(),
+    monto: parseFloat(document.getElementById('transMonto').value),
+    referencia: document.getElementById('transRef').value.trim()
+  };
+
+  if (!payload.usuario || !payload.banco || isNaN(payload.monto) || payload.monto <= 0 || !payload.referencia) {
+    return alert("⚠️ Por favor completa todos los campos correctamente.");
+  }
+
+  // Deshabilitar botón temporalmente para evitar doble clic
+  const btn = document.querySelector('.btn-green');
+  btn.innerText = "Registrando...";
+  btn.disabled = true;
+
+  try {
+    // Aquí llamamos a nuestro propio Backend Node.js, NO directamente a Supabase
+    const response = await fetch(`${AppState.API_URL}/transacciones`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) throw new Error(data.error || 'Error desconocido');
+
+    alert(`✅ ¡Transacción registrada con éxito!\nReferencia: ${payload.referencia}`);
+    document.getElementById('transMonto').value = '';
+    document.getElementById('transRef').value = '';
+  } catch (error) {
+    alert(`❌ Error: ${error.message}`);
+  } finally {
+    btn.innerText = "Registrar Operación";
+    btn.disabled = false;
+  }
+}
+
+// ==========================================
+// INICIALIZACIÓN
+// ==========================================
+window.onload = () => {
+  UI.renderSaldos();
+  UI.generarPizarra();
   
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <style>
-    :root {
-      --bg-main: #0f172a;
-      --card-bg: #1e293b;
-      --border-color: #334155;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --accent-blue: #38bdf8;
-      --btn-blue: #0284c7;
-      --btn-green: #16a34a;
-      --btn-danger: #e11d48;
-      --tag-ok: #166534;
-      --tag-warn: #854d0e;
-      --tag-err: #991b1b;
-    }
-
-    body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background-color: var(--bg-main);
-      color: var(--text-main);
-      margin: 0;
-      padding: 20px;
-    }
-
-    .container {
-      max-width: 1280px;
-      margin: 0 auto;
-    }
-
-    header {
-      margin-bottom: 25px;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 15px;
-    }
-
-    h1 {
-      margin: 0 0 5px 0;
-      color: var(--accent-blue);
-      font-size: 1.8rem;
-    }
-
-    p.subtitle {
-      margin: 0;
-      color: var(--text-muted);
-      font-size: 0.95rem;
-    }
-
-    .grid {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-
-    .col-6 { flex: 1; min-width: 340px; }
-
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
-    }
-
-    h2 {
-      margin-top: 0;
-      font-size: 1.2rem;
-      color: var(--accent-blue);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    textarea {
-      width: 100%;
-      height: 140px;
-      background: #0b1329;
-      color: #38bdf8;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 10px;
-      font-family: monospace;
-      font-size: 13px;
-      box-sizing: border-box;
-      resize: vertical;
-    }
-
-    button {
-      background: var(--btn-blue);
-      color: white;
-      border: none;
-      padding: 10px 18px;
-      font-weight: 600;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: opacity 0.2s;
-    }
-
-    button:hover { opacity: 0.9; }
-    .btn-green { background: var(--btn-green); }
-    .btn-danger { background: var(--btn-danger); }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      font-size: 0.9rem;
-    }
-
-    th, td {
-      border: 1px solid var(--border-color);
-      padding: 8px 12px;
-      text-align: left;
-    }
-
-    th {
-      background: #0f172a;
-      color: var(--text-muted);
-    }
-
-    .box-output {
-      background: #061e1a;
-      border: 1px solid #059669;
-      color: #6ee7b7;
-      padding: 15px;
-      border-radius: 6px;
-      font-family: monospace;
-      white-space: pre-wrap;
-      font-size: 13px;
-      line-height: 1.4;
-      max-height: 220px;
-      overflow-y: auto;
-    }
-
-    .badge {
-      padding: 3px 6px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: bold;
-    }
-
-    .badge-ok { background: var(--tag-ok); color: #86efac; }
-    .badge-warn { background: var(--tag-warn); color: #fde047; }
-    .badge-err { background: var(--tag-err); color: #fca5a5; }
-
-    .input-pizarra {
-      width: 45px;
-      padding: 6px;
-      text-align: center;
-      background: #0b1329;
-      border: 1px solid var(--border-color);
-      color: var(--accent-blue);
-      font-weight: bold;
-      border-radius: 4px;
-    }
-
-    .saldos-grid {
-      display: flex;
-      gap: 15px;
-      flex-wrap: wrap;
-      background: #0f172a;
-      padding: 12px;
-      border-radius: 6px;
-      border: 1px solid var(--border-color);
-    }
-
-    .saldo-item {
-      font-size: 0.85rem;
-    }
-
-    .saldo-item input {
-      width: 70px;
-      padding: 3px 5px;
-      background: #1e293b;
-      border: 1px solid var(--border-color);
-      color: #38bdf8;
-      border-radius: 4px;
-    }
-
-    .caja-input {
-      padding: 8px; 
-      background: #0b1329; 
-      color: white; 
-      border: 1px solid #334155; 
-      border-radius: 4px;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <header>
-      <h1>🏇 Sistema Hípico - Panel de Control & Liquidación</h1>
-      <p class="subtitle">Módulo de Banca: Validación de saldos, control de caja y liquidación de carreras.</p>
-    </header>
-
-    <div class="card">
-      <h2>💰 Bóveda de Saldos Iniciales (Banca)</h2>
-      <div class="saldos-grid" id="panelSaldos"></div>
-    </div>
-
-    <div class="card" style="border-color: #059669;">
-      <h2>🏦 Control de Caja (Depósitos y Retiros)</h2>
-      <div class="grid" style="gap: 10px; align-items: center;">
-        <input type="text" id="transUsuario" class="caja-input" placeholder="Usuario (Ej. JULIO)">
-        
-        <select id="transTipo" class="caja-input">
-          <option value="DEPOSITO">Depósito (Abono)</option>
-          <option value="RETIRO">Retiro (Cargo)</option>
-        </select>
-        
-        <input type="text" id="transBanco" class="caja-input" placeholder="Banco (Ej. Banesco)">
-        
-        <input type="number" id="transMonto" class="caja-input" placeholder="Monto USD" style="width: 100px;">
-        
-        <input type="text" id="transRef" class="caja-input" placeholder="N° Referencia">
-        
-        <button class="btn-green" onclick="registrarTransaccionSupabase()">Registrar Operación</button>
-      </div>
-    </div>
-
-    <div class="grid">
-      <div class="col-6 card">
-        <h2>📥 1. Entrada de Plano de Jugadas</h2>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: -5px;">Formato: <code>JUEGA JUGADA CABALLO DA MONTO</code></p>
-        <textarea id="planoTexto">JULIO 1P 4 JUAN 100
-ANDRES 1/2 Y 2N 3 DURAN 100
-ANDRES 2P 2 LUIS 200
-PABLO 10A7 4 JUAN 100</textarea>
-        <br><br>
-        <button onclick="procesarPlanoCompleto()">⚡ Validar Saldos y Generar Salidas</button>
-      </div>
-
-      <div class="col-6 card">
-        <h2>📱 2. Plano para Grupo (WhatsApp)</h2>
-        <div class="box-output" id="outPlanoGrupo">Haz clic en procesar para generar el plano...</div>
-        <br>
-        <button class="btn-green" onclick="copiarPlanoGrupo()">📋 Copiar Plano para WhatsApp</button>
-      </div>
-    </div>
-
-    <div class="card" id="seccionPrivada" style="display: none;">
-      <h2>💬 Mensaje Privado de Desglose (Usuario Ajustado)</h2>
-      <div class="box-output" id="outMensajePrivado" style="background: #1e1b4b; border-color: #6366f1; color: #c7d2fe;"></div>
-    </div>
-
-    <div class="card">
-      <h2>🔍 Evaluación de Riesgo y Descuento Secuencial</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Enfrentamiento</th>
-            <th>Jugada</th>
-            <th>Pedido</th>
-            <th>Autorizado</th>
-            <th>Saldo Rst. Juega</th>
-            <th>Estado</th>
-          </tr>
-        </thead>
-        <tbody id="tablaEvaluacion">
-          <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Sin jugadas procesadas</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card">
-      <h2>🏁 3. Pizarra Oficial y Liquidación</h2>
-      <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
-        <label style="font-size: 0.9rem;">Puestos Pizarra:</label>
-        <input type="number" id="numPuestos" value="4" min="1" max="10" onchange="generarPizarraUI()" style="width: 50px; padding: 4px; background: #0b1329; border: 1px solid var(--border-color); color: white;">
-        <div id="puestosContainer" style="display: flex; gap: 8px;"></div>
-      </div>
-
-      <button class="btn-danger" onclick="liquidarCarrera()">📊 Liquidar Carrera (Comisión 5%)</button>
-
-      <div id="seccionResultados" style="display: none; margin-top: 20px;">
-        <h3>Resultados Finales de Liquidación</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Jugada Validada</th>
-              <th>Ganador</th>
-              <th>Monto Decidido</th>
-              <th>Comisión Casa (5%)</th>
-              <th>Neto Ganador</th>
-              <th>Cobro Perdedor</th>
-            </tr>
-          </thead>
-          <tbody id="tablaLiquidacion"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // ==========================================
-    // CONFIGURACIÓN DE SUPABASE (BASE DE DATOS)
-    // ==========================================
-    // REEMPLAZA ESTOS DATOS POR TUS CLAVES REALES DE SUPABASE
-    const SUPABASE_URL = "https://ogizwiesmscpibwhsaks.supabase.co/rest/v1/"; 
-    const SUPABASE_KEY = "sb_secret_LeCpOdQyd2wX-w1VQNgfNg_yy1NvdQ2"; 
-    
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    // Función para registrar operaciones de caja
-    async function registrarTransaccionSupabase() {
-      const usuario = document.getElementById('transUsuario').value.trim().toUpperCase();
-      const tipo = document.getElementById('transTipo').value;
-      const banco = document.getElementById('transBanco').value.trim().toUpperCase();
-      const monto = parseFloat(document.getElementById('transMonto').value);
-      const referencia = document.getElementById('transRef').value.trim();
-
-      if (!usuario || !banco || isNaN(monto) || monto <= 0 || !referencia) {
-        alert("⚠️ Por favor completa todos los campos correctamente.");
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('transacciones')
-        .insert([{
-          usuario_id: usuario,
-          tipo: tipo,
-          banco: banco,
-          monto: monto,
-          referencia: referencia,
-          estatus: 'PENDIENTE'
-        }]);
-
-      if (error) {
-        if (error.code === '23505') {
-          alert(`❌ ERROR DE SEGURIDAD:\nLa referencia "${referencia}" YA FUE REGISTRADA previamente en el sistema.\nNo se permiten comprobantes duplicados.`);
-        } else {
-          alert(`❌ Error al registrar en la base de datos: ${error.message}`);
-        }
-      } else {
-        alert(`✅ ¡${tipo} registrado con éxito!\nEstatus: PENDIENTE\nReferencia: ${referencia}`);
-        document.getElementById('transMonto').value = '';
-        document.getElementById('transRef').value = '';
-      }
-    }
-
-
-    // ==========================================
-    // LÓGICA DEL SISTEMA HÍPICO (SALDOS, PLANOS Y PIZARRA)
-    // ==========================================
-    
-    let usuariosBD = {
-      "JULIO": 500,
-      "JUAN": 500,
-      "ANDRES": 150,
-      "DURAN": 500,
-      "LUIS": 500,
-      "PABLO": 500
-    };
-
-    let jugadasAprobadasGlobal = [];
-
-    function renderSaldos() {
-      const panel = document.getElementById('panelSaldos');
-      panel.innerHTML = '';
-      for (let u in usuariosBD) {
-        panel.innerHTML += `
-          <div class="saldo-item">
-            <strong>${u}:</strong> 
-            <input type="number" value="${usuariosBD[u]}" onchange="usuariosBD['${u}']=parseFloat(this.value);"> USD
-          </div>
-        `;
-      }
-    }
-
-    function generarPizarraUI() {
-      const cant = parseInt(document.getElementById('numPuestos').value) || 4;
-      const cont = document.getElementById('puestosContainer');
-      cont.innerHTML = '';
-      for(let i=1; i<=cant; i++) {
-        cont.innerHTML += `
-          <div style="text-align:center;">
-            <span style="font-size:10px; color:var(--text-muted);">${i}º</span><br>
-            <input type="text" class="input-pizarra" id="p_${i}" value="${i === 1 ? '4' : i === 2 ? '3' : i === 3 ? '2' : '1'}">
-          </div>
-        `;
-      }
-    }
-
-    function procesarPlanoCompleto() {
-      let saldosTemp = { ...usuariosBD };
-      const texto = document.getElementById('planoTexto').value;
-      const lineas = texto.split('\n');
-      
-      const tbody = document.getElementById('tablaEvaluacion');
-      tbody.innerHTML = '';
-
-      let planoGrupo = "📋 *PLANO OFICIAL DE JUGADAS*\n\n";
-      let sobregiros = [];
-      let historialPorUsuario = {};
-      jugadasAprobadasGlobal = [];
-
-      lineas.forEach((linea, index) => {
-        const l = linea.trim();
-        if (!l) return;
-
-        const partes = l.split(/\s+/);
-        if (partes.length < 5) return;
-
-        const juega = partes[0];
-        const montoSol = parseFloat(partes[partes.length - 1]);
-        const da = partes[partes.length - 2];
-        const caballo = partes[partes.length - 3];
-        const jugada = partes.slice(1, partes.length - 3).join(' ');
-
-        if(!historialPorUsuario[juega]) historialPorUsuario[juega] = [];
-
-        const sJ = saldosTemp[juega] !== undefined ? saldosTemp[juega] : 0;
-        const sD = saldosTemp[da] !== undefined ? saldosTemp[da] : 0;
-
-        let rJ = montoSol;
-        let rD = montoSol;
-        if(jugada.toUpperCase() === '10A7') rD = montoSol * 0.7;
-
-        const maxFactorJ = sJ / rJ;
-        const maxFactorD = sD / rD;
-        const factorLim = Math.min(maxFactorJ, maxFactorD, 1.0);
-
-        const montoAuth = Math.floor(montoSol * factorLim);
-
-        saldosTemp[juega] -= (montoAuth * (rJ/montoSol));
-        saldosTemp[da] -= (montoAuth * (rD/montoSol));
-
-        let emoji = "✅";
-        let estadoBadge = `<span class="badge badge-ok">APROBADO</span>`;
-
-        if (montoAuth === 0) {
-          emoji = "❌";
-          estadoBadge = `<span class="badge badge-err">RECHAZADO</span>`;
-        } else if (montoAuth < montoSol) {
-          emoji = "⚠️";
-          estadoBadge = `<span class="badge badge-warn">LIMITADO</span>`;
-        }
-
-        planoGrupo += `${emoji} ${juega} ${jugada} ${caballo} ${da} ${montoAuth}${montoAuth < montoSol ? ' (Ajuste)' : ''}\n`;
-
-        if (montoAuth < montoSol) {
-          sobregiros.push(juega);
-        }
-
-        historialPorUsuario[juega].push({
-          da, jugada, caballo, pedido: montoSol, autorizado: montoAuth, saldoRst: saldosTemp[juega]
-        });
-
-        if (montoAuth > 0) {
-          jugadasAprobadasGlobal.push({ juega, jugada, caballo, da, monto: montoAuth });
-        }
-
-        tbody.innerHTML += `
-          <tr>
-            <td>#${index + 1}</td>
-            <td><strong>${juega}</strong> vs ${da}</td>
-            <td>${jugada} (#${caballo})</td>
-            <td>$${montoSol}</td>
-            <td><strong>$${montoAuth}</strong></td>
-            <td>$${saldosTemp[juega].toFixed(2)}</td>
-            <td>${estadoBadge}</td>
-          </tr>
-        `;
-      });
-
-      planoGrupo += "\n-----------------------------------\n📌 *Jugadas procesadas y garantizadas por la plataforma.*";
-      document.getElementById('outPlanoGrupo').innerText = planoGrupo;
-
-      const secPriv = document.getElementById('seccionPrivada');
-      if (sobregiros.length > 0) {
-        const userAfectado = sobregiros[0];
-        let msgPriv = `⚠️ *CONTROL DE SALDO - NOTIFICACIÓN DE JUGADAS*\n`;
-        msgPriv += `👤 *Usuario:* ${userAfectado}\n`;
-        msgPriv += `💰 *Saldo Inicial:* $${usuariosBD[userAfectado]} USD\n`;
-        msgPriv += `-------------------------------------------\n`;
-        msgPriv += `*DESGLOSE DE JUGADAS EN ORDEN DE LLEGADA:*\n\n`;
-
-        historialPorUsuario[userAfectado].forEach((j, i) => {
-          let st = j.autorizado === j.pedido ? "✅ APROBADA" : (j.autorizado > 0 ? `⚠️ LIMITADA A $${j.autorizado}` : "❌ RECHAZADA");
-          msgPriv += `${i+1}. VS *${j.da}* (${j.jugada} #${j.caballo})\n`;
-          msgPriv += `   • Pedido: $${j.pedido} USD ➔ ${st}\n`;
-          msgPriv += `   • Saldo restante: $${j.saldoRst.toFixed(2)} USD\n\n`;
-        });
-
-        msgPriv += `-------------------------------------------\n📌 *Por favor recargar saldo para ampliar tus límites.*`;
-        document.getElementById('outMensajePrivado').innerText = msgPriv;
-        secPriv.style.display = 'block';
-      } else {
-        secPriv.style.display = 'none';
-      }
-    }
-
-    function copiarPlanoGrupo() {
-      const texto = document.getElementById('outPlanoGrupo').innerText;
-      navigator.clipboard.writeText(texto);
-      alert("¡Plano copiado con éxito! Puedes pegarlo en WhatsApp.");
-    }
-
-    function liquidarCarrera() {
-      const cant = parseInt(document.getElementById('numPuestos').value) || 4;
-      let pizarra = [];
-      for(let i=1; i<=cant; i++) {
-        pizarra.push(document.getElementById(`p_${i}`).value.trim());
-      }
-
-      const tbody = document.getElementById('tablaLiquidacion');
-      tbody.innerHTML = '';
-
-      jugadasAprobadasGlobal.forEach(j => {
-        let ganoJuega = false;
-        
-        if (j.jugada.toUpperCase().includes('1P') || j.jugada === '1') {
-          ganoJuega = (pizarra[0] === j.caballo);
-        } else if (j.jugada.toUpperCase().includes('2P')) {
-          ganoJuega = (pizarra[0] === j.caballo || pizarra[1] === j.caballo);
-        } else {
-          ganoJuega = (pizarra[0] === j.caballo);
-        }
-
-        const ganador = ganoJuega ? j.juega : j.da;
-        const comision = j.monto * 0.05;
-        const pagoNeto = j.monto - comision;
-
-        tbody.innerHTML += `
-          <tr>
-            <td>${j.juega} ${j.jugada} #${j.caballo} vs ${j.da}</td>
-            <td style="color:#4ade80; font-weight:bold;">🏆 ${ganador}</td>
-            <td>$${j.monto} USD</td>
-            <td style="color:#f59e0b;">$${comision.toFixed(2)} USD</td>
-            <td style="color:#4ade80;">+$${pagoNeto.toFixed(2)} USD</td>
-            <td style="color:#f87171;">-$${j.monto} USD</td>
-          </tr>
-        `;
-      });
-
-      document.getElementById('seccionResultados').style.display = 'block';
-    }
-
-    renderSaldos();
-    generarPizarraUI();
-    procesarPlanoCompleto();
-  </script>
-</body>
-</html>
+  // Agregar listeners a los botones existentes
+  document.querySelector('.btn-green').onclick = registrarTransaccionBackend;
+  // (Asocia las demás funciones a los botones correspondientes)
+};
