@@ -212,19 +212,21 @@ PABLO 10A7 4 JUAN 100</textarea>
   </div>
 
   <script>
-    // Configuración de Supabase
-    const SUPABASE_URL = "https://ogizwiesmscpibwhsaks.supabase.co"; // Nota: quité el /rest/v1/ porque la librería lo añade sola
+    // Configuración de Supabase (CORREGIDA)
+    const SUPABASE_URL = "https://ogizwiesmscpibwhsaks.supabase.co"; 
     const SUPABASE_KEY = "sb_secret_LeCpOdQyd2wX-w1VQNgfNg_yy1NvdQ2"; 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    // Le cambiamos el nombre a 'db' para que no choque con la librería
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let usuariosBD = { "JULIO": 500, "JUAN": 500, "ANDRES": 150, "DURAN": 500, "LUIS": 500, "PABLO": 500 };
     let jugadasAprobadasGlobal = [];
 
-    // Función de Supabase intacta
+    // Función de Supabase
     async function registrarTransaccionSupabase() {
       const usuario = document.getElementById('transUsuario').value.trim().toUpperCase();
       const tipo = document.getElementById('transTipo').value;
-      const banco = document.getElementById('transBanco').value.trim().toUpperCase();
+      const banco = document.getElementById('transBanco').value;
       const monto = parseFloat(document.getElementById('transMonto').value);
       const referencia = document.getElementById('transRef').value.trim();
 
@@ -233,7 +235,8 @@ PABLO 10A7 4 JUAN 100</textarea>
         return;
       }
 
-      const { data, error } = await supabase.from('transacciones').insert([{
+      // Usamos 'db' en lugar de 'supabase'
+      const { data, error } = await db.from('transacciones').insert([{
         usuario_id: usuario, tipo: tipo, banco: banco, monto: monto, referencia: referencia, estatus: 'PENDIENTE'
       }]);
 
