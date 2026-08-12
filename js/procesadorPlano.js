@@ -42,3 +42,28 @@ async function procesarPlanoYDescontar(resumenJugadores) {
 
     alert("¡Plano procesado y saldos descontados en la Bóveda exitosamente!");
 }
+// js/procesadorPlano.js (añadir al final)
+
+async function cargarSaldosBoveda() {
+    const contenedor = document.getElementById("contenedorSaldos");
+    contenedor.innerHTML = "Cargando saldos...";
+
+    // Consultar todos los perfiles de la base de datos
+    const { data, error } = await db
+        .from('perfiles')
+        .select('alias, saldo_disponible');
+
+    if (error) {
+        contenedor.innerHTML = "❌ Error al cargar saldos.";
+        return;
+    }
+
+    // Crear la tabla de saldos
+    let html = "<table><tr><th>Jugador</th><th>Saldo</th></tr>";
+    data.forEach(item => {
+        html += `<tr><td>${item.alias}</td><td>$${item.saldo_disponible}</td></tr>`;
+    });
+    html += "</table>";
+    
+    contenedor.innerHTML = html;
+}
