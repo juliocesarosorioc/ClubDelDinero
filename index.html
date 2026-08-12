@@ -86,11 +86,9 @@
     // ==========================================
     // 1. CONFIGURACIÓN SUPABASE (¡MODIFICA ESTO!)
     // ==========================================
-    const SUPABASE_URL = "https://ogizwiesmscpibwhsaks.supabase.co/rest/v1/"; 
-    // 👇 PEGA AQUÍ TU CLAVE "anon public" QUE COPIASTE DEL PANEL DE SUPABASE 👇
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9naXp3aWVzbXNjcGlid2hzYWtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMjQ3NDEsImV4cCI6MjEwMTkwMDc0MX0.Eu6X0XDTkFhzlpLkjsQX-xyPpKIASNPYZzOEi5LQZyI"; 
-    
-    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const SUPABASE_URL = "https://ogizwiesmscpibwhsaks.supabase.co"; 
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.aquí_sigue_el_resto_de_tu_clave_larga_sin_espacios"; 
+      const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // Esta variable guardará los saldos que vengan de internet
     let usuariosBD = {}; 
