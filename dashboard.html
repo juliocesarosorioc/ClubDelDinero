@@ -1,33 +1,42 @@
-Panel de Control - Bóveda
-<link rel="stylesheet" href="css/estilos.css">    
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel de Control - Bóveda</title>
+    <!-- Cargar estilos -->
+    <link rel="stylesheet" href="css/estilos.css">
+    <!-- Importar Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
 
+    <h1>Bóveda de Saldos Oficiales</h1>
+    <div id="contenedorSaldos" style="width: 100%; max-width: 400px; margin-bottom: 20px;">
+        Cargando saldos...
+    </div>
 
+    <hr style="width: 100%; max-width: 400px; border-color: #415a77;">
 
-    Bóveda de Saldos Oficiales
-    Cargando saldos...
+    <h2>Procesador de Plano</h2>
+    <div style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px;">
+        <textarea id="inputPlano" rows="4" placeholder="Pega aquí tu plano de jugadas..."></textarea>
+        <button id="btnProcesar">Procesar Plano y Descontar</button>
+    </div>
 
+    <!-- Carga de módulos JavaScript -->
+    <script src="js/supabaseClient.js"></script>
+    <script src="js/procesadorPlano.js"></script>
     
+    <script>
+        // Cargar saldos automáticamente al abrir
+        window.onload = cargarSaldosBoveda;
 
-    Procesador de Plano de Jugadas
-    
-    Procesar Plano y Descontar
-<script src="js/supabaseClient.js"></script>
-<script src="js/procesadorPlano.js"></script>
-
-<script>
-    // Cargar saldos al abrir la página
-    window.onload = cargarSaldosBoveda;
-
-    // Conectar el botón de procesar
-    document.getElementById("btnProcesar").addEventListener("click", async () => {
-        const planoTexto = document.getElementById("inputPlano").value;
-        // Aquí deberías añadir tu lógica que convierte el texto en el array resumenJugadores
-        // Ejemplo simple: const resumenJugadores = convertirPlanoAObjeto(planoTexto);
-        
-        // Ejecutar el proceso
-        await procesarPlanoYDescontar(resumenJugadores);
-        
-        // Recargar los saldos tras procesar
-        await cargarSaldosBoveda();
-    });
-</script>
+        // Conectar el botón de procesar
+        document.getElementById("btnProcesar").addEventListener("click", async () => {
+            const resumenSimulado = [{ alias: "JUAN", totalJugado: 100 }]; 
+            await procesarPlanoYDescontar(resumenSimulado);
+            await cargarSaldosBoveda();
+        });
+    </script>
+</body>
+</html>
