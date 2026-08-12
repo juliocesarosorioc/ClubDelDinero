@@ -49,3 +49,7 @@ button {
 button:hover {
     background-color: #00b4d8;
 }
+
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { padding: 8px; text-align: left; border-bottom: 1px solid #415a77; }
+th { color: #00b4d8; }
