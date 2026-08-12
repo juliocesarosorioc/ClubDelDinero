@@ -1,11 +1,29 @@
-Club del Dinero - Acceso
-<link rel="stylesheet" href="css/estilos.css">    
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Club del Dinero - Acceso</title>
+    <!-- Cargar estilos -->
+    <link rel="stylesheet" href="css/estilos.css">
+    <!-- Importar Supabase desde el CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <h1>Acceso al Sistema</h1>
     
+    <form id="loginForm">
+        <input type="email" id="emailInput" placeholder="Correo electrónico" required>
+        <input type="password" id="passwordInput" placeholder="Contraseña" required>
+        <button type="submit">Entrar al Sistema</button>
+    </form>
 
-
-
-    Acceso al Sistema
+    <!-- Carga de nuestros módulos JavaScript -->
+    <script src="js/supabaseClient.js"></script>
+    <script src="js/auth.js"></script>
     
-        
-        
-        Entrar al Sistema
+    <script>
+        document.getElementById("loginForm").addEventListener("submit", iniciarSesion);
+    </script>
+</body>
+</html>
