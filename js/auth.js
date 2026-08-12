@@ -19,7 +19,7 @@ async function iniciarSesion(event) {
     }
 
     alert("✅ ¡Bienvenido Admin!");
-    // Redirigir o cambiar de vista a la Bóveda principal
+    // Redirigir a la nueva bóveda modular
     window.location.href = "dashboard.html";
     return true;
 }
